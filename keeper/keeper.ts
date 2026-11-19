@@ -21,6 +21,7 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { base, baseSepolia, hardhat } from "viem/chains";
 import { orderBookAbi } from "../shared/abi";
+import { sendRawTransactionValidity, createBlockPredicate } from "../shared/validity";
 
 function env(name: string, fallback?: string): string {
   const v = process.env[name] ?? fallback;
@@ -135,14 +136,9 @@ async function sendValidity(id: bigint): Promise<Hex> {
     chainId: CHAIN.id, type: "eip1559", nonce, to: ORDER_BOOK, data, value: 0n,
     gas: (gas * 13n) / 10n, maxFeePerGas: fees.maxFeePerGas, maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
   });
-  const validity = [{ type: "block_number", params: { op: "<=", value: toHex(latest + 10n) } }];
-  const res = await fetch(SEQUENCER_RPC_URL, {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "base_sendRawTransactionValidity", params: [raw, { validity }] }),
-  });
-  const body = (await res.json()) as { result?: Hex; error?: { message: string } };
-  if (body.error || !body.result) throw new Error(body.error?.message ?? "validity RPC returned no hash");
-  return body.result;
+  return sendRawTransactionValidity(SEQUENCER_RPC_URL, raw, [
+    createBlockPredicate("<=", latest + 10n),
+  ]);
 }
 
 /** Sends one transaction and waits for it. Returns true on success. Failures are logged and backed off. */

@@ -1,0 +1,40 @@
+name: Tests & Verification
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    name: Build & Test Suite
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck TypeScript
+        run: npm run typecheck
+
+      - name: Run Math & Logic Tests
+        run: npm run test:math
+
+      - name: Compile Hardhat Contracts
+        run: npx hardhat compile
+
+      - name: Run Smart Contract Test Suite
+        run: npm test
+
+      - name: Run Validity Transaction Dry-Run
+        run: npm run test:validity

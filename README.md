@@ -1,20 +1,29 @@
 # Base Limit Orders & Validity Transactions
 
-A complete implementation of on-chain limit orders, automated DCA, and **Base Validity Transactions** (featuring native `nonce` predicates via Base's sequencer JSON-RPC `base_sendRawTransactionValidity`).
+[![Tests & Verification](https://github.com/Surya512002/base-validity-transactions/actions/workflows/test.yml/badge.svg)](https://github.com/Surya512002/base-validity-transactions/actions/workflows/test.yml)
+[![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
+[![Base Mainnet](https://img.shields.io/badge/Network-Base%20Mainnet%20%26%20Sepolia-0052FF.svg)](https://base.org)
+
+A production-grade implementation of on-chain limit orders, automated DCA, and **Base Validity Transactions** (featuring native `nonce`, `block_number`, `balance`, and `storage` predicates via Base's sequencer JSON-RPC `base_sendRawTransactionValidity`).
 
 ---
 
-## ⚡ What is Included
+## ⚡ Key Highlights & Features
 
-1. **Smart Contracts (`contracts/`)**:
+1. **Native Base Validity Transactions SDK (`shared/validity.ts`)**:
+   - Strongly-typed builders for `nonce`, `block_number`, `balance`, and `storage` predicates.
+   - Direct JSON-RPC dispatcher for Base Sequencer endpoints (`https://mainnet-sequencer.base.org` and `https://sepolia-sequencer.base.org`).
+2. **Interactive Nonce Validity CLI Suite (`scripts/test-nonce-validity.ts`)**:
+   - **Auto-Trigger Queue Mode (`--mode trigger`)**: Pre-signs transactions that sleep dormant in the sequencer mempool until an account's nonce advances, firing automatically in the next block/Flashblock.
+   - **Zero-Gas Invalidation Mode (`--mode invalidate`)**: Demonstrates native transaction cancellation without paying gas to revert or replace.
+   - Multi-network support: seamlessly run on **Base Mainnet** (`--mainnet`) or **Base Sepolia** (`--sepolia`).
+3. **Escrow & Order Book Smart Contracts (`contracts/`)**:
    - `LimitOrderBook.sol`: Escrow contract supporting Limit Buy, Take-Profit, Stop-Loss, Trailing Stops, Bracket (OCO) orders, and Recurring Buys (DCA).
    - `UniswapV3Adapter.sol`: Swap adapter executing fills directly through Uniswap V3.
    - Built-in oracle-bounded fill guard (Chainlink) and stale-price protection.
-2. **Keeper Bot (`keeper/`)**:
-   - Autonomous bot that ratchets trailing stops, fills triggered orders, refunds expired orders, and runs scheduled DCAs.
-   - Optional native **Base Validity Transaction** mode (`VALIDITY_TX=1`) to prevent late/stale inclusions.
-3. **Nonce Validity Tester (`scripts/test-nonce-validity.ts`)**:
-   - Ready-to-run demonstration of Base's native `base_sendRawTransactionValidity` method with `nonce` and `block_number` predicates.
+4. **Autonomous Keeper Bot (`keeper/`)**:
+   - Ratchets trailing stops, fills triggered orders, refunds expired orders, and runs scheduled DCAs.
+   - Supports native Base Validity Transaction mode (`VALIDITY_TX=1`) to prevent stale/delayed transaction inclusions.
 
 ---
 
@@ -32,39 +41,50 @@ npm install
 ```
 
 ### 3. Configure Environment Variables
-Create your local `.env` file from the example:
 ```bash
 cp .env.example .env
 ```
 *(On Windows PowerShell: `Copy-Item .env.example .env`)*
 
-Open `.env` and fill in your values:
-* `DEPLOYER_PK`: Your 0x-prefixed private key (needs a small amount of Base Sepolia ETH for live tests).
+Configure your `.env` variables:
+* `DEPLOYER_PK`: Your 0x-prefixed private key (needs a small amount of Base ETH or Base Sepolia ETH for live tests).
+* `BASE_RPC_URL`: `https://mainnet.base.org`
+* `BASE_SEQUENCER_RPC`: `https://mainnet-sequencer.base.org`
 * `BASE_SEPOLIA_RPC_URL`: `https://sepolia.base.org`
 * `BASE_SEPOLIA_SEQUENCER_RPC`: `https://sepolia-sequencer.base.org`
 
 ---
 
-## 🧪 Testing
+## 🧪 Testing & Interactive CLI
 
-### 1. Test Base Nonce Validity Transactions
-Demonstrates sending a pre-signed conditional transaction that is held dormant in the Base sequencer until an account's nonce reaches a target threshold:
+### 1. Nonce Validity Transactions CLI
+
+The interactive testing suite runs out of the box with dry-run schema validation or full on-chain execution:
 
 ```bash
-# Run on Base Sepolia (default testnet)
+# Default: Auto-Trigger Queue on Base Sepolia
 npm run test:validity
 
-# Or run on Base Mainnet:
-NETWORK=base npm run test:validity
+# Run on Base Mainnet
+npm run test:validity -- --mainnet
+
+# Demonstrate Zero-Gas Invalidation (Cancellation)
+npm run test:validity -- --mode invalidate
+
+# Target a custom recipient or watch another account's nonce
+npm run test:validity -- --to 0xRecipientAddress... --watch 0xWatchedAddress...
 ```
 
-* **Dry-Run Mode (Default):** If no private key or funds are configured, it automatically generates an ephemeral account and verifies the JSON-RPC request schema against the live sequencer.
-* **Live Mode (Sepolia or Mainnet):** Set `DEPLOYER_PK` in your `.env`. When the account has gas ETH (e.g. $\ge 0.0001$ ETH):
-  1. Signs Tx 2 with nonce $N+1$ and attaches `nonce >= N+1` predicate.
-  2. Submits Tx 2 to the Base sequencer (`https://mainnet-sequencer.base.org` or `https://sepolia-sequencer.base.org`).
-  3. Verifies Tx 2 remains dormant in the sequencer mempool.
-  4. Broadcasts Tx 1 (trigger tx).
-  5. The sequencer detects the nonce condition is met and immediately executes Tx 2 in the next block.
+#### Supported CLI Flags:
+| Flag | Description | Default |
+| :--- | :--- | :--- |
+| `--mainnet` | Target Base Mainnet (Chain ID 8453) | Base Sepolia |
+| `--sepolia` | Target Base Sepolia (Chain ID 84532) | Default |
+| `--mode <trigger\|invalidate>` | `trigger` (auto-execute on nonce threshold) or `invalidate` (zero-gas cancellation demo) | `trigger` |
+| `--to <address>` | Destination address for conditional transaction | Sender account |
+| `--watch <address>` | Account whose nonce the sequencer monitors | Sender account |
+
+---
 
 ### 2. Run Smart Contract Test Suite
 Runs all 47 Hardhat unit & integration tests:
@@ -88,19 +108,17 @@ npm run typecheck
 
 In Base Validity Transactions, there are two distinct addresses you can configure:
 
-| Address Parameter | Environment Variable | What it does | Default if omitted |
+| Address Parameter | Environment Variable / Flag | What it does | Default if omitted |
 | :--- | :--- | :--- | :--- |
-| **Target Recipient** (`to`) | `TARGET_RECIPIENT` | The destination address that receives the transaction (wallet transfer or contract call). | Sender wallet (safe self-transfer) |
-| **Watched Address** (`params.address`) | `WATCH_ADDRESS` | The account whose on-chain protocol nonce the Base sequencer monitors. | Sender wallet (self-trigger) |
+| **Target Recipient** (`to`) | `TARGET_RECIPIENT` / `--to` | The destination address that receives the transaction (wallet transfer or contract call). | Sender wallet (safe self-transfer) |
+| **Watched Address** (`params.address`) | `WATCH_ADDRESS` / `--watch` | The account whose on-chain protocol nonce the Base sequencer monitors. | Sender wallet (self-trigger) |
 
 ---
 
-### 1. Configuration Scenarios (via `.env`)
-
-You can customize the behavior simply by adding or editing values in your `.env` file without altering any TypeScript code:
+### Configuration Scenarios
 
 #### Scenario A: Safe Self-Test (Default)
-Executes a 0 ETH self-transfer to prove the sequencer dormancy and instant execution flow without spending or risking any funds:
+Executes a 0 ETH self-transfer to prove sequencer dormancy and instant block inclusion with zero financial risk:
 ```env
 # .env
 DEPLOYER_PK=0xYourPrivateKey...
@@ -113,11 +131,10 @@ Executes a transaction to a specific destination wallet or contract once your ow
 # .env
 DEPLOYER_PK=0xYourPrivateKey...
 TARGET_RECIPIENT=0xRecipientWalletOrContractAddress...
-# WATCH_ADDRESS will default to your own address
 ```
 
 #### Scenario C: Cross-Account Trigger (The Superpower)
-Your account pre-signs a transaction (Tx 2) that will **only** execute after a completely different account (e.g., a counterparty, bot, or multisig) completes a transaction:
+Your account pre-signs a transaction (Tx 2) that will **only** execute after a completely different account (e.g. a counterparty, bot, or multisig) completes an on-chain transaction:
 ```env
 # .env
 DEPLOYER_PK=0xYourPrivateKey...
@@ -127,97 +144,75 @@ WATCH_ADDRESS=0xOtherAccountToWatch...
 
 ---
 
-### 2. Customizing Predicates in Code (`scripts/test-nonce-validity.ts`)
+## 📦 Using the Validity SDK in Your Own Project
 
-If you want to modify the condition logic in code, inspect `scripts/test-nonce-validity.ts`:
+You can import the typed helpers from `shared/validity.ts` directly into your dApps, bots, or scripts:
 
-#### Supported Comparison Operators (`op`):
-* `">="`: Executes once the watched nonce reaches or exceeds the target (best for guaranteed future execution).
-* `"="`: Executes **only** when the watched nonce is exactly the target. If any other transaction increments the nonce past this value, the transaction is permanently invalidated (ideal for **zero-gas cancellation**!).
-* `"<="` / `"<"`: Bounds execution to occur before an account makes more transactions.
-
-#### Block Number Timeout Ceiling:
-Every validity transaction requires an upper block number bound so the sequencer can safely discard transactions if conditions are never satisfied:
 ```typescript
-const validity = [
-  {
-    type: "nonce",
-    params: {
-      address: watchedAddress,   // Configurable: your address or another account
-      op: ">=",                  // Operator: >=, =, <=, >, <
-      value: toHex(targetNonce), // Target hex nonce (e.g. "0x5")
-    },
-  },
-  {
-    type: "block_number",
-    params: {
-      op: "<=",
-      value: toHex(latestBlock + 60n), // ~2 minutes on Base (2s block time)
-    },
-  },
+import {
+  sendRawTransactionValidity,
+  createNoncePredicate,
+  createBlockPredicate,
+  createBalancePredicate,
+} from "./shared/validity";
+
+// 1. Sign your raw transaction with viem or ethers
+const rawTx = await account.signTransaction({ ... });
+
+// 2. Define predicates
+const predicates = [
+  // Execute only once account reaches nonce 10
+  createNoncePredicate("0xWatchedAccount...", ">=", 10),
+  // Expire after block 60000000 (~2 minute timeout)
+  createBlockPredicate("<=", 60000000n),
 ];
+
+// 3. Dispatch to Base Sequencer
+const txHash = await sendRawTransactionValidity(
+  "https://mainnet-sequencer.base.org",
+  rawTx,
+  predicates
+);
+
+console.log("Validity Transaction parked in sequencer mempool:", txHash);
 ```
 
 ---
 
-### 3. Running on Base Mainnet vs. Base Sepolia
+## 🚀 Autonomous Keeper Bot Setup
 
-Switch networks at any time by updating your `.env` or setting `NETWORK` in your terminal:
+The keeper bot monitors and ratchets trailing stops, fills triggered orders, refunds expired orders, and runs scheduled DCAs.
 
-* **For Base Sepolia Testnet:**
+* **Standard mode:**
   ```bash
-  npm run test:validity
+  npm run keeper
   ```
-* **For Base Mainnet:**
+* **Native Base Validity Transaction mode** (guarantees orders execute within block expiry ceiling):
   ```bash
-  # PowerShell (Windows)
-  $env:NETWORK = "base"; npm run test:validity
+  # In .env set:
+  VALIDITY_TX=1
+  SEQUENCER_RPC_URL=https://mainnet-sequencer.base.org
 
-  # Bash / macOS / Linux
-  NETWORK=base npm run test:validity
+  npm run keeper
   ```
-
----
-
-## 🚀 Contract Deployment & Keeper Setup
-
-### Deploying the Contracts
-To deploy mock contracts to Base Sepolia:
-```bash
-npm run deploy:sepolia-mocks
-```
-To deploy the full order book to Base Mainnet:
-```bash
-npm run deploy
-```
-
-### Running the Autonomous Keeper Bot
-To run the bot in standard mode:
-```bash
-npm run keeper
-```
-To run the bot using native Base Validity Transactions (sequencer-held transactions with block expiry bounds):
-```bash
-# In .env set:
-VALIDITY_TX=1
-SEQUENCER_RPC_URL=https://sepolia-sequencer.base.org
-
-npm run keeper
-```
 
 ---
 
 ## 📁 Repository Layout
 
 ```
+├── .github/workflows/       # GitHub Actions automated test & build pipeline
 ├── contracts/               # Solidity contracts (LimitOrderBook, Adapters, Mocks)
 ├── keeper/                  # Autonomous keeper bot (keeper.ts)
 ├── scripts/
-│   ├── test-nonce-validity.ts  # Base Nonce Validity Transaction test script
+│   ├── test-nonce-validity.ts  # Base Nonce Validity CLI test suite
 │   ├── deploy.js               # Mainnet deploy script
 │   ├── deploy-testnet-mocks.js # Base Sepolia deploy script
 │   └── e2e/                    # End-to-end integration scripts
-├── shared/                  # Shared ABIs and order math calculations
+├── shared/
+│   ├── validity.ts             # Base Validity Transactions SDK & builders
+│   ├── abi.ts                  # Order book contract ABI
+│   └── orderMath.ts            # Price calculations & fill-floor helpers
 ├── test/                    # Hardhat contract test suite (47 tests)
 ├── .env.example             # Template for environment configuration
 └── hardhat.config.js        # Hardhat EVM compiler & network settings
