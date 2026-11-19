@@ -30,11 +30,20 @@ import {
   type Address,
 } from "viem";
 import { privateKeyToAccount, generatePrivateKey } from "viem/accounts";
-import { baseSepolia } from "viem/chains";
+import { base, baseSepolia } from "viem/chains";
 
-// Configuration
-const SEQUENCER_RPC_URL = process.env.BASE_SEPOLIA_SEQUENCER_RPC || "https://sepolia-sequencer.base.org";
-const PUBLIC_RPC_URL = process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org";
+// Network Selection: 'base' | 'baseSepolia' (default: baseSepolia for safety)
+const NETWORK = (process.env.NETWORK || process.env.CHAIN || "baseSepolia").toLowerCase();
+const isMainnet = NETWORK === "base" || NETWORK === "mainnet";
+const TARGET_CHAIN = isMainnet ? base : baseSepolia;
+
+const SEQUENCER_RPC_URL = isMainnet
+  ? (process.env.BASE_SEQUENCER_RPC || "https://mainnet-sequencer.base.org")
+  : (process.env.BASE_SEPOLIA_SEQUENCER_RPC || "https://sepolia-sequencer.base.org");
+
+const PUBLIC_RPC_URL = isMainnet
+  ? (process.env.BASE_RPC_URL || "https://mainnet.base.org")
+  : (process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org");
 
 // Use provided private key or fallback to environment
 const rawPk = process.env.DEPLOYER_PK || process.env.PRIVATE_KEY;
@@ -52,18 +61,19 @@ async function main() {
   const pk: Hex = rawPk && /^0x[0-9a-fA-F]{64}$/.test(rawPk) ? (rawPk as Hex) : generatePrivateKey();
   const account = privateKeyToAccount(pk);
 
-  console.log(`🔑 Account: ${account.address}`);
+  console.log(`🌐 Network:       ${TARGET_CHAIN.name} (Chain ID ${TARGET_CHAIN.id})`);
+  console.log(`🔑 Account:       ${account.address}`);
   console.log(`🌐 Public RPC:    ${PUBLIC_RPC_URL}`);
   console.log(`⚡ Sequencer RPC: ${SEQUENCER_RPC_URL}\n`);
 
   const publicClient = createPublicClient({
-    chain: baseSepolia,
+    chain: TARGET_CHAIN,
     transport: http(PUBLIC_RPC_URL),
   });
 
   const walletClient = createWalletClient({
     account,
-    chain: baseSepolia,
+    chain: TARGET_CHAIN,
     transport: http(PUBLIC_RPC_URL),
   });
 
@@ -79,9 +89,11 @@ async function main() {
   console.log(`   - Current Nonce: ${currentNonce}`);
   console.log(`   - Current Block: ${currentBlock}\n`);
 
-  if (balance < parseEther("0.001")) {
-    console.log("⚠️  Account balance is too low for live execution on Base Sepolia (< 0.001 ETH).");
-    console.log("   You can get Base Sepolia testnet ETH from https://faucets.chain.link/base-sepolia");
+  if (balance < parseEther("0.0001")) {
+    console.log(`⚠️  Account balance is too low for live execution on ${TARGET_CHAIN.name} (< 0.0001 ETH).`);
+    if (!isMainnet) {
+      console.log("   You can get Base Sepolia testnet ETH from https://faucets.chain.link/base-sepolia");
+    }
     console.log("   Demonstrating full payload construction & RPC schema verification:\n");
 
     const targetNonce = currentNonce + 1;
@@ -145,7 +157,7 @@ async function main() {
   // Step 2: Sign Transaction 2 (The Conditional Transaction)
   console.log(`✍️  Step 1: Signing Tx 2 (Conditional Tx) with account nonce = ${nonceTx2}...`);
   const rawTx2 = await account.signTransaction({
-    chainId: baseSepolia.id,
+    chainId: TARGET_CHAIN.id,
     type: "eip1559",
     nonce: nonceTx2,
     to: account.address,

@@ -51,16 +51,20 @@ Open `.env` and fill in your values:
 Demonstrates sending a pre-signed conditional transaction that is held dormant in the Base sequencer until an account's nonce reaches a target threshold:
 
 ```bash
+# Run on Base Sepolia (default testnet)
 npm run test:validity
+
+# Or run on Base Mainnet:
+NETWORK=base npm run test:validity
 ```
 
-* **Dry-Run Mode (Default):** If no private key or funds are configured, it automatically generates an ephemeral account and verifies the JSON-RPC request schema against the live Base Sepolia sequencer.
-* **Live Mode:** Once `DEPLOYER_PK` has $\ge 0.001$ Base Sepolia testnet ETH:
+* **Dry-Run Mode (Default):** If no private key or funds are configured, it automatically generates an ephemeral account and verifies the JSON-RPC request schema against the live sequencer.
+* **Live Mode (Sepolia or Mainnet):** Set `DEPLOYER_PK` in your `.env`. When the account has gas ETH (e.g. $\ge 0.0001$ ETH):
   1. Signs Tx 2 with nonce $N+1$ and attaches `nonce >= N+1` predicate.
-  2. Submits Tx 2 to `https://sepolia-sequencer.base.org`.
-  3. Verifies Tx 2 remains dormant.
+  2. Submits Tx 2 to the Base sequencer (`https://mainnet-sequencer.base.org` or `https://sepolia-sequencer.base.org`).
+  3. Verifies Tx 2 remains dormant in the sequencer mempool.
   4. Broadcasts Tx 1 (trigger tx).
-  5. The sequencer detects the nonce condition is met and immediately executes Tx 2.
+  5. The sequencer detects the nonce condition is met and immediately executes Tx 2 in the next block.
 
 ### 2. Run Smart Contract Test Suite
 Runs all 47 Hardhat unit & integration tests:
