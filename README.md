@@ -84,33 +84,102 @@ npm run typecheck
 
 ---
 
-## 🛠️ How to Customize & Adapt for Your Project
+## 🛠️ Complete Guide: Customizing Addresses & Validity Conditions
 
-### Changing Nonce Validity Conditions
-Inspect `scripts/test-nonce-validity.ts` to adjust:
-* **The target account:** Monitor your own account or a third-party wallet / contract.
-* **The operator (`op`):** Supports `>=`, `=`, `<=`, `>`, `<`.
-* **The expiry block:** Set `block_number` predicate (`op: "<="`) to control how long the sequencer holds the transaction before discarding it.
+In Base Validity Transactions, there are two distinct addresses you can configure:
 
+| Address Parameter | Environment Variable | What it does | Default if omitted |
+| :--- | :--- | :--- | :--- |
+| **Target Recipient** (`to`) | `TARGET_RECIPIENT` | The destination address that receives the transaction (wallet transfer or contract call). | Sender wallet (safe self-transfer) |
+| **Watched Address** (`params.address`) | `WATCH_ADDRESS` | The account whose on-chain protocol nonce the Base sequencer monitors. | Sender wallet (self-trigger) |
+
+---
+
+### 1. Configuration Scenarios (via `.env`)
+
+You can customize the behavior simply by adding or editing values in your `.env` file without altering any TypeScript code:
+
+#### Scenario A: Safe Self-Test (Default)
+Executes a 0 ETH self-transfer to prove the sequencer dormancy and instant execution flow without spending or risking any funds:
+```env
+# .env
+DEPLOYER_PK=0xYourPrivateKey...
+# Leave TARGET_RECIPIENT and WATCH_ADDRESS unset
+```
+
+#### Scenario B: Send Funds / Call Contract on Nonce Trigger
+Executes a transaction to a specific destination wallet or contract once your own account reaches a target nonce:
+```env
+# .env
+DEPLOYER_PK=0xYourPrivateKey...
+TARGET_RECIPIENT=0xRecipientWalletOrContractAddress...
+# WATCH_ADDRESS will default to your own address
+```
+
+#### Scenario C: Cross-Account Trigger (The Superpower)
+Your account pre-signs a transaction (Tx 2) that will **only** execute after a completely different account (e.g., a counterparty, bot, or multisig) completes a transaction:
+```env
+# .env
+DEPLOYER_PK=0xYourPrivateKey...
+TARGET_RECIPIENT=0xRecipientAddress...
+WATCH_ADDRESS=0xOtherAccountToWatch...
+```
+
+---
+
+### 2. Customizing Predicates in Code (`scripts/test-nonce-validity.ts`)
+
+If you want to modify the condition logic in code, inspect `scripts/test-nonce-validity.ts`:
+
+#### Supported Comparison Operators (`op`):
+* `">="`: Executes once the watched nonce reaches or exceeds the target (best for guaranteed future execution).
+* `"="`: Executes **only** when the watched nonce is exactly the target. If any other transaction increments the nonce past this value, the transaction is permanently invalidated (ideal for **zero-gas cancellation**!).
+* `"<="` / `"<"`: Bounds execution to occur before an account makes more transactions.
+
+#### Block Number Timeout Ceiling:
+Every validity transaction requires an upper block number bound so the sequencer can safely discard transactions if conditions are never satisfied:
 ```typescript
 const validity = [
   {
     type: "nonce",
     params: {
-      address: account.address,
-      op: ">=",
-      value: toHex(targetNonce),
+      address: watchedAddress,   // Configurable: your address or another account
+      op: ">=",                  // Operator: >=, =, <=, >, <
+      value: toHex(targetNonce), // Target hex nonce (e.g. "0x5")
     },
   },
   {
     type: "block_number",
     params: {
       op: "<=",
-      value: toHex(latestBlock + 60n), // ~2 minutes on Base
+      value: toHex(latestBlock + 60n), // ~2 minutes on Base (2s block time)
     },
   },
 ];
 ```
+
+---
+
+### 3. Running on Base Mainnet vs. Base Sepolia
+
+Switch networks at any time by updating your `.env` or setting `NETWORK` in your terminal:
+
+* **For Base Sepolia Testnet:**
+  ```bash
+  npm run test:validity
+  ```
+* **For Base Mainnet:**
+  ```bash
+  # PowerShell (Windows)
+  $env:NETWORK = "base"; npm run test:validity
+
+  # Bash / macOS / Linux
+  NETWORK=base npm run test:validity
+  ```
+
+---
+
+## 🚀 Contract Deployment & Keeper Setup
 
 ### Deploying the Contracts
 To deploy mock contracts to Base Sepolia:
