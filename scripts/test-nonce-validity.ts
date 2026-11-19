@@ -61,10 +61,18 @@ async function main() {
   const pk: Hex = rawPk && /^0x[0-9a-fA-F]{64}$/.test(rawPk) ? (rawPk as Hex) : generatePrivateKey();
   const account = privateKeyToAccount(pk);
 
-  console.log(`🌐 Network:       ${TARGET_CHAIN.name} (Chain ID ${TARGET_CHAIN.id})`);
-  console.log(`🔑 Account:       ${account.address}`);
-  console.log(`🌐 Public RPC:    ${PUBLIC_RPC_URL}`);
-  console.log(`⚡ Sequencer RPC: ${SEQUENCER_RPC_URL}\n`);
+  // Addresses:
+  // 1. targetRecipient: where Tx 2 sends ETH/calls (default: account.address for safe testing)
+  // 2. watchedAddress: whose nonce the sequencer monitors (default: account.address for self-trigger)
+  const targetRecipient: Address = (process.env.TARGET_RECIPIENT as Address) || account.address;
+  const watchedAddress: Address = (process.env.WATCH_ADDRESS as Address) || account.address;
+
+  console.log(`🌐 Network:          ${TARGET_CHAIN.name} (Chain ID ${TARGET_CHAIN.id})`);
+  console.log(`🔑 Sender Account:    ${account.address}`);
+  console.log(`🎯 Target Recipient: ${targetRecipient} ${targetRecipient === account.address ? "(self-transfer)" : ""}`);
+  console.log(`👀 Watched Address:   ${watchedAddress} ${watchedAddress === account.address ? "(self-triggering nonce)" : "(cross-account trigger)"}`);
+  console.log(`🌐 Public RPC:       ${PUBLIC_RPC_URL}`);
+  console.log(`⚡ Sequencer RPC:    ${SEQUENCER_RPC_URL}\n`);
 
   const publicClient = createPublicClient({
     chain: TARGET_CHAIN,
@@ -105,7 +113,7 @@ async function main() {
         {
           type: "nonce",
           params: {
-            address: account.address,
+            address: watchedAddress,
             op: ">=",
             value: toHex(targetNonce),
           },
@@ -145,7 +153,7 @@ async function main() {
     publicClient.estimateFeesPerGas(),
     publicClient.estimateGas({
       account,
-      to: account.address,
+      to: targetRecipient,
       value: 0n,
     }),
   ]);
@@ -155,12 +163,12 @@ async function main() {
   const expiryBlock = currentBlock + 60n;
 
   // Step 2: Sign Transaction 2 (The Conditional Transaction)
-  console.log(`✍️  Step 1: Signing Tx 2 (Conditional Tx) with account nonce = ${nonceTx2}...`);
+  console.log(`✍️  Step 1: Signing Tx 2 (Conditional Tx to ${targetRecipient}) with account nonce = ${nonceTx2}...`);
   const rawTx2 = await account.signTransaction({
     chainId: TARGET_CHAIN.id,
     type: "eip1559",
     nonce: nonceTx2,
-    to: account.address,
+    to: targetRecipient,
     value: 0n,
     gas: (gas * 13n) / 10n,
     maxFeePerGas: fees.maxFeePerGas,
@@ -168,13 +176,13 @@ async function main() {
   });
 
   // Step 3: Submit Tx 2 via base_sendRawTransactionValidity to Sequencer
-  console.log(`📤 Step 2: Submitting Tx 2 to Sequencer with Nonce Predicate (nonce >= ${nonceTx2})...`);
+  console.log(`📤 Step 2: Submitting Tx 2 to Sequencer with Nonce Predicate (watching ${watchedAddress} nonce >= ${nonceTx2})...`);
   const validityConfig = {
     validity: [
       {
         type: "nonce",
         params: {
-          address: account.address,
+          address: watchedAddress,
           op: ">=",
           value: toHex(nonceTx2),
         },
