@@ -48,9 +48,8 @@ cp .env.example .env
 
 Configure your `.env` variables:
 * `DEPLOYER_PK`: Your 0x-prefixed private key (needs a small amount of Base ETH or Base Sepolia ETH for live tests).
-* `BASE_RPC_URL`: `https://mainnet.base.org`
+* `ALCHEMY_API_KEY`: *(Recommended)* Your Alchemy API key from [dashboard.alchemy.com](https://dashboard.alchemy.com) for high-speed chain queries and explorer tracking.
 * `BASE_SEQUENCER_RPC`: `https://mainnet-sequencer.base.org`
-* `BASE_SEPOLIA_RPC_URL`: `https://sepolia.base.org`
 * `BASE_SEPOLIA_SEQUENCER_RPC`: `https://sepolia-sequencer.base.org`
 
 ---
@@ -134,12 +133,13 @@ TARGET_RECIPIENT=0xRecipientWalletOrContractAddress...
 ```
 
 #### Scenario C: Cross-Account Trigger (The Superpower)
-Your account pre-signs a transaction (Tx 2) that will **only** execute after a completely different account (e.g. a counterparty, bot, or multisig) completes an on-chain transaction:
+Your account pre-signs a transaction (Tx 2) that will **only** execute after a completely different account (e.g. Jesse Pollak, a counterparty, bot, or multisig) completes an on-chain transaction.
+*Example: You want to buy a token right after Jesse Pollak makes a buy, without running a 24/7 listener bot!*
 ```env
 # .env
 DEPLOYER_PK=0xYourPrivateKey...
-TARGET_RECIPIENT=0xRecipientAddress...
-WATCH_ADDRESS=0xOtherAccountToWatch...
+TARGET_RECIPIENT=0xTokenSwapRouterOrRecipient...
+WATCH_ADDRESS=0xJessePollakWalletAddress...
 ```
 
 ---

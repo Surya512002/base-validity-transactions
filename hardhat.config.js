@@ -19,6 +19,10 @@ subtask(TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD, async (args, hre, runSuper) => {
 
 const PK = process.env.DEPLOYER_PK ? [process.env.DEPLOYER_PK] : [];
 
+const alchemyKey = process.env.ALCHEMY_API_KEY;
+const baseRpc = process.env.BASE_RPC_URL || (alchemyKey ? `https://base-mainnet.g.alchemy.com/v2/${alchemyKey}` : "https://mainnet.base.org");
+const baseSepoliaRpc = process.env.BASE_SEPOLIA_RPC_URL || (alchemyKey ? `https://base-sepolia.g.alchemy.com/v2/${alchemyKey}` : "https://sepolia.base.org");
+
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: {
@@ -26,7 +30,7 @@ module.exports = {
     settings: { optimizer: { enabled: true, runs: 200 }, evmVersion: "cancun" },
   },
   networks: {
-    base: { url: process.env.BASE_RPC_URL || "https://mainnet.base.org", accounts: PK, chainId: 8453 },
-    baseSepolia: { url: process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org", accounts: PK, chainId: 84532 },
+    base: { url: baseRpc, accounts: PK, chainId: 8453 },
+    baseSepolia: { url: baseSepoliaRpc, accounts: PK, chainId: 84532 },
   },
 };

@@ -66,9 +66,14 @@ const SEQUENCER_RPC_URL = isMainnet
   ? (process.env.BASE_SEQUENCER_RPC || "https://mainnet-sequencer.base.org")
   : (process.env.BASE_SEPOLIA_SEQUENCER_RPC || "https://sepolia-sequencer.base.org");
 
+const alchemyKey = process.env.ALCHEMY_API_KEY;
+const defaultPublicRpc = isMainnet
+  ? (alchemyKey ? `https://base-mainnet.g.alchemy.com/v2/${alchemyKey}` : "https://mainnet.base.org")
+  : (alchemyKey ? `https://base-sepolia.g.alchemy.com/v2/${alchemyKey}` : "https://sepolia.base.org");
+
 const PUBLIC_RPC_URL = isMainnet
-  ? (process.env.BASE_RPC_URL || "https://mainnet.base.org")
-  : (process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org");
+  ? (process.env.BASE_RPC_URL || defaultPublicRpc)
+  : (process.env.BASE_SEPOLIA_RPC_URL || defaultPublicRpc);
 
 const rawPk = process.env.DEPLOYER_PK || process.env.PRIVATE_KEY;
 
