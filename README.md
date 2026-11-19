@@ -22,8 +22,8 @@ A complete implementation of on-chain limit orders, automated DCA, and **Base Va
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/<your-username>/<your-repo-name>.git
-cd limit-orders
+git clone https://github.com/Surya512002/base-validity-transactions.git
+cd base-validity-transactions
 ```
 
 ### 2. Install dependencies
