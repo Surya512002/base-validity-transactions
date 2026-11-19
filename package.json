@@ -1,0 +1,32 @@
+{
+  "name": "base-limit-orders",
+  "version": "1.0.0",
+  "description": "On-chain limit orders, automated DCA, and Base Validity Transactions (nonce predicates) on Base",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "keeper": "tsx keeper/keeper.ts",
+    "test:math": "tsx shared/orderMath.test.ts",
+    "typecheck": "tsc --noEmit -p .",
+    "test:validity": "tsx scripts/test-nonce-validity.ts",
+    "deploy:sepolia-mocks": "hardhat run scripts/deploy-testnet-mocks.js --network baseSepolia",
+    "deploy": "hardhat run scripts/deploy.js --network base",
+    "e2e:local": "bash scripts/e2e/run-e2e.sh"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "5.0.0",
+    "@openzeppelin/contracts": "5.6.1",
+    "@types/node": "26.6.6",
+    "hardhat": "2.29.1",
+    "solc": "0.8.24",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "viem": "2.57.16"
+  },
+  "private": true,
+  "dependencies": {
+    "dotenv": "^18.0.10"
+  }
+}
